@@ -35,18 +35,18 @@ def main():
 
     fids = [x.strip() for x in open(file_list).readlines()]
     nfs_audio, nfs_video = [x.strip() for x in open(nframes_audio_file).readlines()], [x.strip() for x in open(nframes_video_file).readlines()]
-    en_fids = set([x.strip() for x in open(args.en_ids).readlines()])
+    en_fids = {x.strip() for x in open(args.en_ids).readlines()}
     train_all, train_sub = [], []
     for fid, nf_audio, nf_video in zip(fids, nfs_audio, nfs_video):
         if fid in en_fids:
             train_sub.append([fid, nf_audio, nf_video])
         train_all.append([fid, nf_audio, nf_video])
     dir_en = f"{args.vox}/en_data"
-    print(f"Set up English-only dir")
+    print("Set up English-only dir")
     os.makedirs(dir_en, exist_ok=True)
     setup_target(dir_en, train_sub)
     dir_all = f"{args.vox}/all_data"
-    print(f"Set up all data dir")
+    print("Set up all data dir")
     os.makedirs(dir_all, exist_ok=True)
     setup_target(dir_all, train_all)
     return

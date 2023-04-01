@@ -25,7 +25,7 @@ from fairseq.models.wav2vec.wav2vec2 import (
 from fairseq.modules import GradMultiply, LayerNorm
 from copy import deepcopy
 
-DBG=True if len(sys.argv) == 1 else False
+DBG = len(sys.argv) == 1
 
 if DBG:
     from hubert_pretraining import (
@@ -353,10 +353,10 @@ class AVHubertModel(BaseFairseqModel):
         self.modality_dropout, self.audio_dropout = cfg.modality_dropout, cfg.audio_dropout
         self.modality_fuse = cfg.modality_fuse
         self.encoder_embed_dim = cfg.encoder_embed_dim
-        if self.modality_fuse == 'concat':
-            self.embed = cfg.encoder_embed_dim * 2
-        elif self.modality_fuse == 'add':
+        if self.modality_fuse == 'add':
             self.embed = cfg.encoder_embed_dim
+        elif self.modality_fuse == 'concat':
+            self.embed = cfg.encoder_embed_dim * 2
         self.post_extract_proj = (
             nn.Linear(self.embed, cfg.encoder_embed_dim)
             if self.embed != cfg.encoder_embed_dim
@@ -414,7 +414,7 @@ class AVHubertModel(BaseFairseqModel):
             self.final_proj = nn.Linear(cfg.encoder_embed_dim, final_dim)
 
         # modules below are not needed during fine-tuning
-        if any([d is None for d in dictionaries]):
+        if any(d is None for d in dictionaries):
             logger.info(
                 "cannot find dictionary. assume will be used for fine-tuning"
             )
@@ -436,12 +436,11 @@ class AVHubertModel(BaseFairseqModel):
         """Build a new model instance."""
 
         kwargs = {}
-        model = AVHubertModel(cfg, task.cfg, task.dictionaries, **kwargs)
-        return model
+        return AVHubertModel(cfg, task.cfg, task.dictionaries, **kwargs)
 
     def apply_input_mask(self, x, padding_mask, target_list):
         B, C, T = x.shape[:3]
-        is_audio = True if len(x.shape) == 3 else False
+        is_audio = len(x.shape) == 3
         if is_audio:
             mask_prob, mask_length = self.mask_prob_audio, self.mask_length_audio
         else:
@@ -490,12 +489,15 @@ class AVHubertModel(BaseFairseqModel):
             mask_indices = None
 
         if self.mask_channel_prob > 0:
-            logger.info(f"No mask channel prob for input masking")
+            logger.info("No mask channel prob for input masking")
         return x, mask_indices
 
     def apply_feature_mask(self, x, padding_mask, target_list):
         B, T, C = x.shape
-        assert self.mask_prob_audio == self.mask_prob_image and self.mask_length_audio == self.mask_length_image, f"masking prob/length for image/audio be same for feature masking"
+        assert (
+            self.mask_prob_audio == self.mask_prob_image
+            and self.mask_length_audio == self.mask_length_image
+        ), "masking prob/length for image/audio be same for feature masking"
         mask_prob, mask_length = self.mask_prob_audio, self.mask_length_image
         if mask_prob > 0:
             mask_indices, _, _, _ = compute_mask_indices(
@@ -551,7 +553,7 @@ class AVHubertModel(BaseFairseqModel):
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         # Trim features to ensure labels exist and then get aligned labels
         feat_tsz = features.size(2)
-        targ_tsz = min([t.size(1) for t in target_list])
+        targ_tsz = min(t.size(1) for t in target_list)
         if self.feat2tar_ratio * feat_tsz > targ_tsz:
             feat_tsz = int(targ_tsz / self.feat2tar_ratio)
             features = features[..., :feat_tsz]
@@ -609,12 +611,11 @@ class AVHubertModel(BaseFairseqModel):
         features_audio = self.forward_features(src_audio, modality='audio') # features: [B, F, T]
         features_video = self.forward_features(src_video, modality='video')
         modality_drop_prob, audio_drop_prob = np.random.random(), np.random.random()
-        if self.training:
-            if modality_drop_prob < self.modality_dropout:
-                if audio_drop_prob < self.audio_dropout:
-                    features_audio = 0 * features_audio
-                else:
-                    features_video = 0 * features_video
+        if self.training and modality_drop_prob < self.modality_dropout:
+            if audio_drop_prob < self.audio_dropout:
+                features_audio = 0 * features_audio
+            else:
+                features_video = 0 * features_video
         if self.modality_fuse == 'concat':
             features = torch.cat([features_audio, features_video], dim=1)
         elif self.modality_fuse == 'add':
@@ -663,7 +664,7 @@ class AVHubertModel(BaseFairseqModel):
         mask, unmask = torch.logical_and(mask_indices, ~padding_mask).view(-1), torch.logical_and(~mask_indices, ~padding_mask).view(-1) # [B*T]
         logit_m_list, logit_u_list = [logit[mask] for logit in logit_list], [logit[unmask] for logit in logit_list]
         target_m_list, target_u_list = [target.view(-1)[mask].long() for target in target_list], [target.view(-1)[unmask].long() for target in target_list]
-        result = {
+        return {
             "logit_m_list": logit_m_list,
             "logit_u_list": logit_u_list,
             "target_m_list": target_m_list,
@@ -671,7 +672,6 @@ class AVHubertModel(BaseFairseqModel):
             "padding_mask": padding_mask,
             "features_pen": features_pen,
         }
-        return result
 
     def extract_features(
         self,
@@ -706,7 +706,7 @@ class AVHubertModel(BaseFairseqModel):
         elif src_audio is None and src_video is not None:
             features_video = self.forward_features(src_video, modality='video')
             features_audio = features_video.new_zeros(features_video.size(0), self.encoder_embed_dim, features_video.size(-1))
-        elif src_audio is not None and src_video is not None:
+        elif src_audio is not None:
             features_video = self.forward_features(src_video, modality='video')
             features_audio = self.forward_features(src_audio, modality='audio') # features: [B, F, T]
 
@@ -775,5 +775,4 @@ class AVHubertModel(BaseFairseqModel):
         logits /= self.logit_temp
         if neg_is_pos.any():
             logits[1:][neg_is_pos] = float("-inf")
-        logits = logits.transpose(0, 1)  # (num_x, num_cls+1)
-        return logits
+        return logits.transpose(0, 1)

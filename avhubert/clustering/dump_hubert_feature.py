@@ -125,7 +125,7 @@ def get_path_iterator(tsv, nshard, rank):
             for line in lines:
                 items = line.strip().split("\t")
                 # audio_path = f"{items[1]}:{items[0]}"
-                yield (items[1], items[2]+':'+items[0]), int(items[3])
+                yield ((items[1], f'{items[2]}:{items[0]}'), int(items[3]))
 
         return iterate, len(lines)
 
@@ -173,5 +173,5 @@ if __name__ == "__main__":
     sys.path.append(args.user_dir)
     import utils as custom_utils
     kwargs = vars(args)
-    kwargs.update({'custom_utils': custom_utils})
+    kwargs['custom_utils'] = custom_utils
     dump_feature(**kwargs)

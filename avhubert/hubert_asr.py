@@ -21,7 +21,7 @@ from fairseq.models.hubert.hubert import MASKING_DISTRIBUTION_CHOICES
 from fairseq.tasks import FairseqTask
 from omegaconf import II, MISSING
 
-DBG=True if len(sys.argv) == 1 else False
+DBG = len(sys.argv) == 1
 
 if DBG:
     from hubert import AVHubertModel
@@ -186,8 +186,7 @@ class AVHubertCtc(BaseFairseqModel):
         return logits
 
     def forward(self, **kwargs):
-        x = self.w2v_encoder(**kwargs)
-        return x
+        return self.w2v_encoder(**kwargs)
 
 
 @dataclass
@@ -335,7 +334,7 @@ class HubertEncoder(FairseqEncoder):
         }
         ft = self.freeze_finetune_updates <= self.num_updates
 
-        with torch.no_grad() if not ft else contextlib.ExitStack():
+        with contextlib.ExitStack() if ft else torch.no_grad():
             x, padding_mask = self.w2v_model.extract_finetune(**w2v_args)
 
             if tbc:
@@ -492,10 +491,11 @@ class AVHubertSeq2Seq(FairseqEncoderDecoderModel):
 
     def forward(self, **kwargs):
         ft = self.freeze_finetune_updates <= self.num_updates
-        with torch.no_grad() if not ft else contextlib.ExitStack():
+        with contextlib.ExitStack() if ft else torch.no_grad():
             output = self.encoder(**kwargs)
-        decoder_out = self.decoder(prev_output_tokens=kwargs['prev_output_tokens'], encoder_out=output)
-        return decoder_out
+        return self.decoder(
+            prev_output_tokens=kwargs['prev_output_tokens'], encoder_out=output
+        )
 
     def upgrade_state_dict_named(self, state_dict, name):
         super().upgrade_state_dict_named(state_dict, name)

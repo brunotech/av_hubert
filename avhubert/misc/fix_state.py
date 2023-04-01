@@ -24,7 +24,9 @@ def add_task_state(ckpt_path):
         dictionaries = [Dictionary.load(f"{prt['cfg']['task']['label_dir']}/dict.{label}.txt") for label in prt['cfg']['task']['labels']]
         target_dictionary = Dictionary.load(f"{cfg['task']['label_dir']}/dict.wrd.txt")
         tokenizer_fn = std['cfg']['task']['tokenizer_bpe_model']
-        bpe_args = argparse.Namespace(**{'bpe': 'sentencepiece', f"sentencepiece_model": tokenizer_fn})
+        bpe_args = argparse.Namespace(
+            **{'bpe': 'sentencepiece', "sentencepiece_model": tokenizer_fn}
+        )
         bpe_tokenizer = encoders.build_bpe(bpe_args)
         std['task_state'] = {'dictionaries': dictionaries, 'target_dictionary': target_dictionary, 's2s_tokenizer': bpe_tokenizer}
     torch.save(std, ckpt_path)

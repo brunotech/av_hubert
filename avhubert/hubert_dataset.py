@@ -20,7 +20,7 @@ from fairseq.data.fairseq_dataset import FairseqDataset
 from python_speech_features import logfbank
 from scipy.io import wavfile
 
-DBG=True if len(sys.argv) == 1 else False
+DBG = len(sys.argv) == 1
 
 if DBG:
     import utils as custom_utils
@@ -38,12 +38,12 @@ logger = logging.getLogger(__name__)
 
 def load_audio_visual(manifest_path, max_keep, min_keep, frame_rate, label_paths, label_rates, tol=0.1):
     def is_audio_label_aligned(audio_dur, label_durs):
-        return all([abs(audio_dur - label_dur)<tol for label_dur in label_durs])
+        return all(abs(audio_dur - label_dur)<tol for label_dur in label_durs)
 
     n_long, n_short, n_unaligned = 0, 0, 0
     names, inds, sizes = [], [], []
     dur_from_label_list = []
-    is_seq_label = any([x==-1 for x in label_rates])
+    is_seq_label = any(x==-1 for x in label_rates)
     for label_path, label_rate in zip(label_paths, label_rates):
         label_lengths = [len(line.rstrip().split())/label_rate for line in open(label_path).readlines()]
         dur_from_label_list.append(label_lengths)
@@ -64,7 +64,7 @@ def load_audio_visual(manifest_path, max_keep, min_keep, frame_rate, label_paths
                 video_path = items[1]
                 audio_path = items[2]
                 audio_id = items[0]
-                names.append((video_path, audio_path+':'+audio_id))
+                names.append((video_path, f'{audio_path}:{audio_id}'))
                 inds.append(ind)
                 sizes.append(sz)
     tot = ind + 1
@@ -190,7 +190,9 @@ class AVHubertDataset(FairseqDataset):
         self.is_s2s = is_s2s
         self.noise_wav, self.noise_prob, self.noise_snr, self.noise_num = [ln.strip() for ln in open(noise_fn).readlines()] if noise_fn is not None else [], noise_prob, noise_snr, noise_num
 
-        assert self.single_target == (self.label_rates[0] == -1), f"single target should be equivalent to sequence label (label_rate==-1)"
+        assert self.single_target == (
+            self.label_rates[0] == -1
+        ), "single target should be equivalent to sequence label (label_rate==-1)"
         if store_labels:
             self.label_list = [load_label(p, inds, tot) for p in label_paths]
         else:
@@ -206,7 +208,7 @@ class AVHubertDataset(FairseqDataset):
             for label_path, label_rate in zip(label_paths, self.label_rates):
                 verify_label_lengths(self.sizes, self.sample_rate, label_path, label_rate, inds, tot)
         else:
-            logger.info(f"Skip label alignment verifying")
+            logger.info("Skip label alignment verifying")
 
         self.max_sample_size = (
             max_sample_size if max_sample_size is not None else sys.maxsize
@@ -272,11 +274,9 @@ class AVHubertDataset(FairseqDataset):
                 feats = np.concatenate([feats, res], axis=0)
             feats = feats.reshape((-1, stack_order, feat_dim)).reshape(-1, stack_order*feat_dim)
             return feats
+
         video_fn, audio_fn = mix_name
-        if 'video' in self.modalities:
-            video_feats = self.load_video(video_fn) # [T, H, W, 1]
-        else:
-            video_feats = None
+        video_feats = self.load_video(video_fn) if 'video' in self.modalities else None
         if 'audio' in self.modalities:
             audio_fn = audio_fn.split(':')[0]
             sample_rate, wav_data = wavfile.read(audio_fn)
@@ -303,21 +303,21 @@ class AVHubertDataset(FairseqDataset):
 
     def select_noise(self):
         rand_indexes = np.random.randint(0, len(self.noise_wav), size=self.noise_num)
-        noise_wav = []
-        for x in rand_indexes:
-            noise_wav.append(wavfile.read(self.noise_wav[x])[1].astype(np.float32))
+        noise_wav = [
+            wavfile.read(self.noise_wav[x])[1].astype(np.float32)
+            for x in rand_indexes
+        ]
         if self.noise_num == 1:
             return noise_wav[0]
-        else:
-            min_len = min([len(x) for x in noise_wav])
-            noise_wav = [x[:min_len] for x in noise_wav]
-            noise_wav = np.floor(np.stack(noise_wav).mean(axis=0))
-            return noise_wav
+        min_len = min(len(x) for x in noise_wav)
+        noise_wav = [x[:min_len] for x in noise_wav]
+        noise_wav = np.floor(np.stack(noise_wav).mean(axis=0))
+        return noise_wav
 
     def add_noise(self, clean_wav):
         clean_wav = clean_wav.astype(np.float32)
         noise_wav = self.select_noise()
-        if type(self.noise_snr) == int or type(self.noise_snr) == float:
+        if type(self.noise_snr) in [int, float]:
             snr = self.noise_snr
         elif type(self.noise_snr) == tuple:
             snr = np.random.randint(self.noise_snr[0], self.noise_snr[1]+1)
@@ -375,7 +375,7 @@ class AVHubertDataset(FairseqDataset):
 
     def collater(self, samples):
         samples = [s for s in samples if s["id"] is not None]
-        if len(samples) == 0:
+        if not samples:
             return {}
 
         audio_source, video_source = [s["audio_source"] for s in samples], [s["video_source"] for s in samples]
@@ -434,7 +434,7 @@ class AVHubertDataset(FairseqDataset):
             torch.BoolTensor(len(audios), audio_size).fill_(False) # 
         )
         start_known = audio_starts is not None
-        audio_starts = [0 for _ in audios] if not start_known else audio_starts
+        audio_starts = audio_starts if start_known else [0 for _ in audios]
         for i, audio in enumerate(audios):
             diff = len(audio) - audio_size
             if diff == 0:

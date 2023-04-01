@@ -17,7 +17,7 @@ def dump_av_hubert(*args, **kwargs):
     fairseq.utils.import_user_module(Namespace(user_dir=av_hubert_dir))
     sys.path.append(av_hubert_dir)
     import utils as custom_utils
-    kwargs.update({'custom_utils': custom_utils})
+    kwargs['custom_utils'] = custom_utils
     args = args[0]
     dump_feature(*args, **kwargs)
     return
@@ -54,9 +54,9 @@ def main():
     parser.add_argument('--output', type=str, help='output dir (labels)')
     parser.add_argument('--ckpt', type=str, help='checkpoint of last iteration')
     parser.add_argument('--nlayer', type=int, default=12, help='layer index for clustering')
-    parser.add_argument('--ncluster', type=int, default=500, help='number of clusters') 
-    parser.add_argument('--nshard', type=int, default=100, help='number of shards') 
-    parser.add_argument('--percent', type=float, default=0.05, help='Percentage for clustering') 
+    parser.add_argument('--ncluster', type=int, default=500, help='number of clusters')
+    parser.add_argument('--nshard', type=int, default=100, help='number of shards')
+    parser.add_argument('--percent', type=float, default=0.05, help='Percentage for clustering')
     parser.add_argument('--mfcc', action='store_true', help='extracting MFCC feature')
     parser.add_argument('--slurm-partition', type=str, help='slurm partitions')
     args = parser.parse_args()
@@ -79,7 +79,7 @@ def main():
 
     args_array = []
     if is_mfcc:
-        print(f"Dump MFCC feature")
+        print("Dump MFCC feature")
         for rank in range(nshard):
             args = [tsv_dir, 'train', nshard, rank, output_dir]
             args_array.append(args)
@@ -87,7 +87,7 @@ def main():
         ext.update_parameters(timeout_min=60, slurm_partition=slurm_partition, cpus_per_task=1, slurm_array_parallelism=100)
         jobs = ext.map_array(dump_mfcc, args_array)
     else:
-        print(f"Dump AV-Hubert feature")
+        print("Dump AV-Hubert feature")
         for rank in range(nshard):
             args = [tsv_dir, 'train', ckpt_path, nlayer, nshard, rank, output_dir, 1600000]
             args_array.append(args)
@@ -96,7 +96,7 @@ def main():
         jobs = ext.map_array(dump_av_hubert, args_array)
     [job.result() for job in jobs]
 
-    print(f"Learn K-means")
+    print("Learn K-means")
     percent, batch_size = percent, 20000
     ext.update_parameters(timeout_min=timeout_min, slurm_partition=slurm_partition, cpus_per_task=8, mem_gb=128)
     args, kwargs = [feat_dir, 'train', nshard, km_path, n_clusters], vars(Namespace(seed=0, percent=percent, init="k-means++", max_iter=100, batch_size=batch_size, tol=0.0, n_init=20, reassignment_ratio=0.0, max_no_improvement=100))
@@ -104,7 +104,7 @@ def main():
     job = ext.submit(run_kmeans, *args, **kwargs)
     job.result()
 
-    print(f"Apply K-means")
+    print("Apply K-means")
     args_array = []
     for rank in range(nshard):
         args = [feat_dir, 'train', km_path, nshard, rank, output_dir]
@@ -114,7 +114,7 @@ def main():
     jobs = ext.map_array(apply_kmeans, args_array)
     [job.result() for job in jobs]
 
-    print(f"Concatenate labels")
+    print("Concatenate labels")
     cont = f"for rank in $(seq 0 {nshard-1}); do cat {output_dir}/train_${{rank}}_{nshard}.km; done > {output_dir}/train.km"
     print(cont)
     subprocess.call(cont, shell=True)
@@ -123,7 +123,7 @@ def main():
     subprocess.call(cont, shell=True)
     with open(f"{output_dir}/dict.km.txt", 'w') as fo:
         for i in range(n_clusters):
-            fo.write(f"{i} {10000}\n")
+            fo.write(f"{i} 10000\n")
     print(f"Please delete intermediate files to save space: rm {output_dir}/*npy")
     return
 

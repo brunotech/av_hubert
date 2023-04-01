@@ -80,14 +80,14 @@ class TransformerDecoder(FairseqIncrementalDecoder):
         )
 
         self.embed_positions = (
-            PositionalEmbedding(
+            None
+            if cfg.no_token_positional_embeddings
+            else PositionalEmbedding(
                 cfg.max_target_positions,
                 embed_dim,
                 padding_idx,
                 learned=cfg.decoder_learned_pos,
             )
-            if not cfg.no_token_positional_embeddings
-            else None
         )
 
         # TODO: update this when transformer gets converted to dataclass configs

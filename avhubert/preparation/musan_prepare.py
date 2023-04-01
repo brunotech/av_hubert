@@ -29,7 +29,7 @@ def split_musan(musan_root, rank, nshard):
             num_split = int(np.ceil(len(wav_data) / (dur*sample_rate)))
             for i in range(num_split):
                 filename = '/'.join(wav_fn.split('/')[-3:])[:-4]
-                output_wav_fn = os.path.join(output_dir, filename + f'-{i}.wav')
+                output_wav_fn = os.path.join(output_dir, f'{filename}-{i}.wav')
                 sub_data = wav_data[i*dur*sample_rate: (i+1)*dur*sample_rate]
                 os.makedirs(os.path.dirname(output_wav_fn), exist_ok=True)
                 wavfile.write(output_wav_fn, sample_rate, sub_data.astype(np.int16))
@@ -37,10 +37,8 @@ def split_musan(musan_root, rank, nshard):
 
 def mix_audio(wav_fns):
     wav_data = [wavfile.read(wav_fn)[1] for wav_fn in wav_fns]
-    wav_data_ = []
-    min_len = min([len(x) for x in wav_data])
-    for item in wav_data:
-        wav_data_.append(item[:min_len])
+    min_len = min(len(x) for x in wav_data)
+    wav_data_ = [item[:min_len] for item in wav_data]
     wav_data = np.stack(wav_data_).mean(axis=0).astype(np.int16)
     return wav_data
 
@@ -87,7 +85,7 @@ def make_musan_babble(musan_root, rank, nshard):
         num_per_shard = math.ceil(num_split/nshard)
         start_id, end_id = num_per_shard*rank, num_per_shard*(rank+1)
         for i in tqdm(range(num_split)):
-            if not (i >= start_id and i < end_id):
+            if i < start_id or i >= end_id:
                 continue
             np.random.seed(i)
             perm = np.random.permutation(len(wav_fns))[:num_per_mixture]
@@ -117,17 +115,17 @@ if __name__ == '__main__':
     tmp_dir = tempfile.mkdtemp(dir='./')
     executor = submitit.AutoExecutor(folder=tmp_dir)
     executor.update_parameters(slurm_array_parallelism=100, slurm_partition=args.slurm_partition, timeout_min=240)
-    ranks = list(range(0, args.nshard))
-    print(f"Split raw audio")
+    ranks = list(range(args.nshard))
+    print("Split raw audio")
     jobs = executor.map_array(split_musan, [args.musan for _ in ranks], ranks, [args.nshard for _ in ranks])
     [job.result() for job in jobs]
     short_musan = os.path.join(args.musan, 'short-musan')
-    print(f"Get speaker info")
+    print("Get speaker info")
     get_speaker_info(short_musan)
-    print(f"Mix audio")
+    print("Mix audio")
     jobs = executor.map_array(make_musan_babble, [short_musan for _ in ranks], ranks, [args.nshard for _ in ranks])
     [job.result() for job in jobs]
-    print(f"Count number of frames")
+    print("Count number of frames")
     wav_fns = glob.glob(f"{short_musan}/babble/*/*wav") + glob.glob(f"{short_musan}/music/*/*wav") + glob.glob(f"{short_musan}/noise/*/*wav")
     jobs = executor.map_array(count_frames, [wav_fns for _ in ranks], ranks, [args.nshard for _ in ranks])
     nfs = [job.result() for job in jobs]

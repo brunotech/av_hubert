@@ -40,8 +40,7 @@ def warp_img(src, dst, img, std_size):
 def apply_transform(transform, img, std_size):
     warped = tf.warp(img, inverse_map=transform.inverse, output_shape=std_size)
     warped = warped * 255  # note output from warp is double image (value range [0,1])
-    warped = warped.astype('uint8')
-    return warped
+    return warped.astype('uint8')
 
 def get_frame_count(filename):
     cap = cv2.VideoCapture(filename)
@@ -65,26 +64,33 @@ def cut_patch(img, landmarks, height, width, threshold=5):
     center_x, center_y = np.mean(landmarks, axis=0)
 
     if center_y - height < 0:                                                
-        center_y = height                                                    
+        center_y = height
     if center_y - height < 0 - threshold:                                    
-        raise Exception('too much bias in height')                           
+        raise Exception('too much bias in height')
     if center_x - width < 0:                                                 
-        center_x = width                                                     
+        center_x = width
     if center_x - width < 0 - threshold:                                     
         raise Exception('too much bias in width')                            
-                                                                             
+
     if center_y + height > img.shape[0]:                                     
-        center_y = img.shape[0] - height                                     
+        center_y = img.shape[0] - height
     if center_y + height > img.shape[0] + threshold:                         
-        raise Exception('too much bias in height')                           
+        raise Exception('too much bias in height')
     if center_x + width > img.shape[1]:                                      
-        center_x = img.shape[1] - width                                      
+        center_x = img.shape[1] - width
     if center_x + width > img.shape[1] + threshold:                          
         raise Exception('too much bias in width')                            
-                                                                             
-    cutted_img = np.copy(img[ int(round(center_y) - round(height)): int(round(center_y) + round(height)),
-                         int(round(center_x) - round(width)): int(round(center_x) + round(width))])
-    return cutted_img
+
+    return np.copy(
+        img[
+            int(round(center_y) - round(height)) : int(
+                round(center_y) + round(height)
+            ),
+            int(round(center_x) - round(width)) : int(
+                round(center_x) + round(width)
+            ),
+        ]
+    )
 
 def write_video_ffmpeg(rois, target_path, ffmpeg):
     os.makedirs(os.path.dirname(target_path), exist_ok=True)
@@ -92,7 +98,7 @@ def write_video_ffmpeg(rois, target_path, ffmpeg):
     fps = 25
     tmp_dir = tempfile.mkdtemp()
     for i_roi, roi in enumerate(rois):
-        cv2.imwrite(os.path.join(tmp_dir, str(i_roi).zfill(decimals)+'.png'), roi)
+        cv2.imwrite(os.path.join(tmp_dir, f'{str(i_roi).zfill(decimals)}.png'), roi)
     list_fn = os.path.join(tmp_dir, "list")
     with open(list_fn, 'w') as fo:
         fo.write("file " + "'" + tmp_dir+'/%0'+str(decimals)+'d.png' + "'\n")
@@ -123,8 +129,7 @@ def load_args(default_config=None):
     parser.add_argument('--rank', type=int, help='rank id')
     parser.add_argument('--nshard', type=int, help='number of shards')
 
-    args = parser.parse_args()
-    return args
+    return parser.parse_args()
 
 
 def crop_patch(video_pathname, landmarks, mean_face_landmarks, stablePntsIDs, STD_SIZE):
@@ -220,13 +225,17 @@ if __name__ == '__main__':
     fids = fids[start_id: end_id]
     for filename_idx, filename in enumerate(tqdm(fids)):
 
-        video_pathname = os.path.join(args.video_direc, filename+'.mp4')
+        video_pathname = os.path.join(args.video_direc, f'{filename}.mp4')
 
-        landmarks_pathname = os.path.join(args.landmark_direc, filename+'.pkl')
-        dst_pathname = os.path.join(args.save_direc, filename+'.mp4')
+        landmarks_pathname = os.path.join(args.landmark_direc, f'{filename}.pkl')
+        dst_pathname = os.path.join(args.save_direc, f'{filename}.mp4')
 
-        assert os.path.isfile(video_pathname), "File does not exist. Path input: {}".format(video_pathname)
-        assert os.path.isfile(landmarks_pathname), "File does not exist. Path input: {}".format(landmarks_pathname)
+        assert os.path.isfile(
+            video_pathname
+        ), f"File does not exist. Path input: {video_pathname}"
+        assert os.path.isfile(
+            landmarks_pathname
+        ), f"File does not exist. Path input: {landmarks_pathname}"
 
         if os.path.exists(dst_pathname):
             continue
@@ -245,7 +254,7 @@ if __name__ == '__main__':
 
         # -- crop
         sequence = crop_patch(video_pathname, preprocessed_landmarks, mean_face_landmarks, stablePntsIDs, STD_SIZE)
-        assert sequence is not None, "cannot crop from {}.".format(filename)
+        assert sequence is not None, f"cannot crop from {filename}."
 
         # -- save
         os.makedirs(os.path.dirname(dst_pathname), exist_ok=True)

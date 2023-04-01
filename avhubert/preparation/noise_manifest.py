@@ -61,7 +61,7 @@ def combine(input_tsv_dirs, output_dir):
         train_fn, valid_fn, test_fn = [ln.strip() for ln in open(f"{input_tsv_dir}/train.tsv").readlines()], [ln.strip() for ln in open(f"{input_tsv_dir}/valid.tsv").readlines()], [ln.strip() for ln in open(f"{input_tsv_dir}/test.tsv").readlines()]
         num_repeats = int(np.ceil(num_train_per_cat/len(train_fn)))
         train_fn_ = []
-        for i in range(num_repeats):
+        for _ in range(num_repeats):
             train_fn_.extend(train_fn)
         train_fn = train_fn_[:num_train_per_cat]
         train_fns.extend(train_fn)
@@ -81,9 +81,9 @@ def main():
     parser.add_argument('--lrs3', type=str, help='LRS3 root')
     args = parser.parse_args()
     short_musan, output_tsv_dir = f"{args.musan}/short-musan", f"{args.musan}/tsv"
-    print(f"Make tsv for babble, music, noise")
+    print("Make tsv for babble, music, noise")
     make_musan_tsv(short_musan, output_tsv_dir)
-    print(f"Combine tsv")
+    print("Combine tsv")
     input_tsv_dirs = [f"{output_tsv_dir}/{x}" for x in ['noise', 'music', 'babble']] + [f"{args.lrs3}/noise/speech"]
     combine(input_tsv_dirs, output_tsv_dir)
     return

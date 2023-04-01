@@ -26,7 +26,7 @@ def main():
     nframes_audio_file, nframes_video_file = f"{args.lrs3}/nframes.audio", f"{args.lrs3}/nframes.video"
     assert os.path.isfile(nframes_audio_file) , f"{nframes_audio_file} not exist -> run count_frames.py first"
     assert os.path.isfile(nframes_video_file) , f"{nframes_video_file} not exist -> run count_frames.py first"
-    print(f"Generating sentencepiece units")
+    print("Generating sentencepiece units")
     vocab_size = args.vocab_size
     vocab_dir = (Path(f"{args.lrs3}")/f"spm{vocab_size}").absolute()
     # out_root = Path(vocab_dir).absolute()
@@ -37,7 +37,7 @@ def main():
         for t in label_text:
             f.write(t.lower() + "\n")
         gen_vocab(Path(f.name), vocab_dir/spm_filename_prefix, 'unigram', args.vocab_size)
-    vocab_path = (vocab_dir/spm_filename_prefix).as_posix()+'.txt'
+    vocab_path = f'{(vocab_dir / spm_filename_prefix).as_posix()}.txt'
 
     audio_dir, video_dir = f"{args.lrs3}/audio", f"{args.lrs3}/video"
 
@@ -55,7 +55,7 @@ def main():
 
     fids, labels = [x.strip() for x in open(file_list).readlines()], [x.strip().lower() for x in open(label_list).readlines()]
     nfs_audio, nfs_video = [x.strip() for x in open(nframes_audio_file).readlines()], [x.strip() for x in open(nframes_video_file).readlines()]
-    valid_fids = set([x.strip() for x in open(args.valid_ids).readlines()])
+    valid_fids = {x.strip() for x in open(args.valid_ids).readlines()}
     train_all, train_sub, valid, test = [], [], [], []
     for fid, label, nf_audio, nf_video in zip(fids, labels, nfs_audio, nfs_video):
         part = fid.split('/')[0]
@@ -70,11 +70,11 @@ def main():
                 if part == 'trainval':
                     train_sub.append([fid, label, nf_audio, nf_video])
     dir_30h = f"{args.lrs3}/30h_data"
-    print(f"Set up 30h dir")
+    print("Set up 30h dir")
     os.makedirs(dir_30h, exist_ok=True)
     setup_target(dir_30h, train_sub, valid, test)
     dir_433h = f"{args.lrs3}/433h_data"
-    print(f"Set up 433h dir")
+    print("Set up 433h dir")
     os.makedirs(dir_433h, exist_ok=True)
     setup_target(dir_433h, train_all, valid, test)
     return

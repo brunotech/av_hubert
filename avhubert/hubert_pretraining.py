@@ -21,7 +21,7 @@ from omegaconf import MISSING, II
 import numpy as np
 from argparse import Namespace
 
-DBG=True if len(sys.argv) == 1 else False
+DBG = len(sys.argv) == 1
 
 if DBG:
     from hubert_dataset import AVHubertDataset
@@ -203,8 +203,7 @@ class AVHubertPretrainingTask(FairseqTask):
 
     def load_tokenizer(self):
         bpe_args = Namespace(**{'bpe': self.cfg.tokenizer_bpe_name, f"{self.cfg.tokenizer_bpe_name}_model": self.cfg.tokenizer_bpe_model})
-        bpe_tokenizer = encoders.build_bpe(bpe_args)
-        return bpe_tokenizer
+        return encoders.build_bpe(bpe_args)
 
     @property
     def s2s_tokenizer(self):
@@ -220,9 +219,7 @@ class AVHubertPretrainingTask(FairseqTask):
         return cls(cfg)
 
     def get_label_dir(self) -> str:
-        if self.cfg.label_dir is None:
-            return self.cfg.data
-        return self.cfg.label_dir
+        return self.cfg.data if self.cfg.label_dir is None else self.cfg.label_dir
 
     def load_dataset(self, split: str, **kwargs) -> None:
         manifest = f"{self.cfg.data}/{split}.tsv"
@@ -232,7 +229,7 @@ class AVHubertPretrainingTask(FairseqTask):
         if not self.cfg.is_s2s:
             procs = [LabelEncoder(dictionary) for dictionary in dictionaries]
         else:
-            logger.info(f"Using tokenizer")
+            logger.info("Using tokenizer")
             bpe_tokenizer = self.s2s_tokenizer
             procs = [LabelEncoderS2SToken(dictionary, bpe_tokenizer) for dictionary in dictionaries]
         paths = [

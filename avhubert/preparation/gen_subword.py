@@ -51,7 +51,7 @@ def gen_vocab(
     sp.SentencePieceTrainer.Train(" ".join(arguments))
     # Export fairseq dictionary
     spm = sp.SentencePieceProcessor()
-    spm.Load(output_path_prefix.as_posix() + ".model")
+    spm.Load(f"{output_path_prefix.as_posix()}.model")
     vocab = {i: spm.IdToPiece(i) for i in range(spm.GetPieceSize())}
     assert (
         vocab.get(UNK_TOKEN_ID) == UNK_TOKEN
@@ -64,7 +64,7 @@ def gen_vocab(
         for i, s in vocab.items()
         if s not in {UNK_TOKEN, BOS_TOKEN, EOS_TOKEN, PAD_TOKEN}
     }
-    with open(output_path_prefix.as_posix() + ".txt", "w") as f_out:
+    with open(f"{output_path_prefix.as_posix()}.txt", "w") as f_out:
         for _, s in sorted(vocab.items(), key=lambda x: x[0]):
             f_out.write(f"{s} 1\n")
     return

@@ -11,10 +11,8 @@ from tqdm import tqdm
 
 def mix_audio(wav_fns):
     wav_data = [wavfile.read(wav_fn)[1] for wav_fn in wav_fns]
-    wav_data_ = []
-    min_len = min([len(x) for x in wav_data])
-    for item in wav_data:
-        wav_data_.append(item[:min_len])
+    min_len = min(len(x) for x in wav_data)
+    wav_data_ = [item[:min_len] for item in wav_data]
     wav_data = np.stack(wav_data_).mean(axis=0).astype(np.int16)
     return wav_data
 
@@ -68,10 +66,8 @@ def main():
     num_train, num_valid, num_test = int(len(noise_fns)*0.6), int(len(noise_fns)*0.2), int(len(noise_fns)*0.2)
     prev = 0
     for split in ['train', 'valid', 'test']:
-        split_fns = []
         num_x, tsv_x = eval(f"num_{split}"), f"{speech_tsv_dir}/{split}.tsv"
-        for fn in noise_fns[prev: prev+num_x]:
-            split_fns.append(os.path.abspath(fn))
+        split_fns = [os.path.abspath(fn) for fn in noise_fns[prev: prev+num_x]]
         with open(tsv_x, 'w') as fo:
             fo.write('\n'.join(split_fns)+'\n')
         prev += num_x

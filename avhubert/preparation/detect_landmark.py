@@ -11,8 +11,7 @@ from tqdm import tqdm
 
 def load_video(path):
     videogen = skvideo.io.vread(path)
-    frames = np.array([frame for frame in videogen])
-    return frames
+    return np.array(list(videogen))
 
 def detect_face_landmarks(face_predictor_path, cnn_detector_path, root_dir, landmark_dir, flist_fn, rank, nshard):
 
@@ -26,7 +25,7 @@ def detect_face_landmarks(face_predictor_path, cnn_detector_path, root_dir, land
         for (_, rect) in enumerate(rects):
             shape = predictor(gray, rect)
             coords = np.zeros((68, 2), dtype=np.int32)
-            for i in range(0, 68):
+            for i in range(68):
                 coords[i] = (shape.part(i).x, shape.part(i).y)
         return coords
 
@@ -41,8 +40,8 @@ def detect_face_landmarks(face_predictor_path, cnn_detector_path, root_dir, land
     fids = fids[start_id: end_id]
     print(f"{len(fids)} files")
     for fid in tqdm(fids):
-        output_fn = os.path.join(output_dir, fid+'.pkl')
-        video_path = os.path.join(input_dir, fid+'.mp4')
+        output_fn = os.path.join(output_dir, f'{fid}.pkl')
+        video_path = os.path.join(input_dir, f'{fid}.mp4')
         frames = load_video(video_path)
         landmarks = []
         for frame in frames:

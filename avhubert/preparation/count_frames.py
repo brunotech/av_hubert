@@ -48,7 +48,7 @@ if __name__ == '__main__':
     tmp_dir = tempfile.mkdtemp(dir='./')
     executor = submitit.AutoExecutor(folder=tmp_dir)
     executor.update_parameters(slurm_array_parallelism=100, slurm_partition=args.slurm_partition)
-    ranks = list(range(0, args.nshard))
+    ranks = list(range(args.nshard))
     fids_arr = []
     num_per_shard = math.ceil(len(fids)/args.nshard)
     for rank in ranks:
@@ -57,12 +57,10 @@ if __name__ == '__main__':
             fids_arr.append(sub_fids)
     jobs = executor.map_array(check, fids_arr, [audio_dir for _ in fids_arr], [video_dir for _ in fids_arr])
     missing_fids = [job.result() for job in jobs]
-    missing_fids = [x for item in missing_fids for x in item]
-    if len(missing_fids) > 0:
+    if missing_fids := [x for item in missing_fids for x in item]:
         print(f"Some audio/video files not exist, see {args.root}/missing.list")
         with open(f"{args.root}/missing.list", 'w') as fo:
             fo.write('\n'.join(missing_fids)+'\n')
-        shutil.rmtree(tmp_dir)
     else:
         jobs = executor.map_array(count_frames, fids_arr, [audio_dir for _ in fids_arr], [video_dir for _ in fids_arr])
         num_frames = [job.result() for job in jobs]
@@ -74,4 +72,4 @@ if __name__ == '__main__':
             fo.write(''.join([f"{x}\n" for x in audio_num_frames]))
         with open(f"{args.root}/nframes.video", 'w') as fo:
             fo.write(''.join([f"{x}\n" for x in video_num_frames]))
-        shutil.rmtree(tmp_dir)
+    shutil.rmtree(tmp_dir)

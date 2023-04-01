@@ -27,7 +27,7 @@ def make_short_manifest(pretrain_dir, output_fn):
     max_duration = 15
     df = {'fid': [], 'sent': [], 'start': [], 'end': []}
     for subdir in tqdm(subdirs):
-        txt_fns = glob.glob(os.path.join(pretrain_dir, subdir+'/*txt'))
+        txt_fns = glob.glob(os.path.join(pretrain_dir, f'{subdir}/*txt'))
         for txt_fn in txt_fns:
             fid = os.path.relpath(txt_fn, pretrain_dir)[:-4]
             lns = open(txt_fn).readlines()
@@ -61,12 +61,9 @@ def make_short_manifest(pretrain_dir, output_fn):
             if len(cur_sent) > 0:
                 sents.append(cur_sent)
             for i_sent, sent in enumerate(sents):
-                df['fid'].append(fid+'_'+str(i_sent))
+                df['fid'].append(f'{fid}_{str(i_sent)}')
                 sent_words = ' '.join([x[0] for x in sent])
-                if i_sent == 0:
-                    sent_start = 0
-                else:
-                    sent_start = (sent[0][1] + sents[i_sent-1][-1][2])/2
+                sent_start = 0 if i_sent == 0 else (sent[0][1] + sents[i_sent-1][-1][2])/2
                 if i_sent == len(sents)-1:
                     sent_end = -1
                 else:
@@ -90,26 +87,21 @@ def trim_video_frame(csv_fn, raw_dir, output_dir, ffmpeg, rank, nshard):
     raw2fid = OrderedDict()
     decimal, fps = 9, 25
     for fid, start, end in zip(df['id'], df['start'], df['end']):
-        if '_' in fid:
-            raw_fid = '_'.join(fid.split('_')[:-1])
-        else:
-            raw_fid = fid
+        raw_fid = '_'.join(fid.split('_')[:-1]) if '_' in fid else fid
         if raw_fid in raw2fid:
             raw2fid[raw_fid].append([fid, start, end])
         else:
             raw2fid[raw_fid] = [[fid, start, end]]
-    i_raw = -1
     num_per_shard = math.ceil(len(raw2fid.keys())/nshard)
     start_id, end_id = num_per_shard*rank, num_per_shard*(rank+1)
     fid_info_shard = list(raw2fid.items())[start_id: end_id]
     print(f"Total videos in current shard: {len(fid_info_shard)}/{len(raw2fid.keys())}")
-    for raw_fid, fid_info in tqdm(fid_info_shard):
-        i_raw += 1
-        raw_path = os.path.join(raw_dir, raw_fid+'.mp4')
+    for i_raw, (raw_fid, fid_info) in enumerate(tqdm(fid_info_shard), start=-1):
+        raw_path = os.path.join(raw_dir, f'{raw_fid}.mp4')
         tmp_dir = tempfile.mkdtemp()
-        cmd = ffmpeg + " -i " + raw_path + " " + tmp_dir + '/%0' + str(decimal) + 'd.png -loglevel quiet'
+        cmd = f"{ffmpeg} -i {raw_path} {tmp_dir}/%0{decimal}d.png -loglevel quiet"
         subprocess.call(cmd, shell=True)
-        num_frames = len(glob.glob(tmp_dir+'/*png'))
+        num_frames = len(glob.glob(f'{tmp_dir}/*png'))
         for fid, start_sec, end_sec in fid_info:
             sub_dir = os.path.join(tmp_dir, fid)
             os.makedirs(sub_dir, exist_ok=True)
@@ -117,12 +109,25 @@ def trim_video_frame(csv_fn, raw_dir, output_dir, ffmpeg, rank, nshard):
             if end_sec == -1:
                 end_sec = 24*3600
             start_frame_id, end_frame_id = int(start_sec*fps), min(int(end_sec*fps), num_frames)
-            imnames = [tmp_dir+'/'+str(x+1).zfill(decimal)+'.png' for x in range(start_frame_id, end_frame_id)]
+            imnames = [
+                f'{tmp_dir}/{str(x + 1).zfill(decimal)}.png'
+                for x in range(start_frame_id, end_frame_id)
+            ]
             for ix, imname in enumerate(imnames):
-                shutil.copyfile(imname, sub_dir+'/'+str(ix).zfill(decimal)+'.png')
-            output_path = os.path.join(output_dir, fid+'.mp4')
+                shutil.copyfile(imname, f'{sub_dir}/{str(ix).zfill(decimal)}.png')
+            output_path = os.path.join(output_dir, f'{fid}.mp4')
             os.makedirs(os.path.dirname(output_path), exist_ok=True)
-            cmd = [ffmpeg, "-i", sub_dir+'/%0'+str(decimal)+'d.png', "-y", "-crf", "20", output_path, "-loglevel", "quiet"]
+            cmd = [
+                ffmpeg,
+                "-i",
+                f'{sub_dir}/%0{decimal}d.png',
+                "-y",
+                "-crf",
+                "20",
+                output_path,
+                "-loglevel",
+                "quiet",
+            ]
 
             pipe = subprocess.call(cmd, stdout = subprocess.PIPE, stderr = subprocess.STDOUT) # subprocess.PIPE
         shutil.rmtree(tmp_dir)
@@ -132,24 +137,19 @@ def trim_audio(csv_fn, raw_dir, output_dir, ffmpeg, rank, nshard):
     df = read_csv(csv_fn)
     raw2fid = OrderedDict()
     for fid, start, end in zip(df['id'], df['start'], df['end']):
-        if '_' in fid:
-            raw_fid = '_'.join(fid.split('_')[:-1])
-        else:
-            raw_fid = fid
+        raw_fid = '_'.join(fid.split('_')[:-1]) if '_' in fid else fid
         if raw_fid in raw2fid:
             raw2fid[raw_fid].append([fid, start, end])
         else:
             raw2fid[raw_fid] = [[fid, start, end]]
-    i_raw = -1
     num_per_shard = math.ceil(len(raw2fid.keys())/nshard)
     start_id, end_id = num_per_shard*rank, num_per_shard*(rank+1)
     fid_info_shard = list(raw2fid.items())[start_id: end_id]
     print(f"Total audios in current shard: {len(fid_info_shard)}/{len(raw2fid.keys())}")
-    for raw_fid, fid_info in tqdm(fid_info_shard):
-        i_raw += 1
+    for i_raw, (raw_fid, fid_info) in enumerate(tqdm(fid_info_shard), start=-1):
         tmp_dir = tempfile.mkdtemp()
         wav_path = os.path.join(tmp_dir, 'tmp.wav')
-        cmd = ffmpeg + " -i " + os.path.join(raw_dir, raw_fid+'.mp4') + " -f wav -vn -y " + wav_path + ' -loglevel quiet'
+        cmd = f"{ffmpeg} -i {os.path.join(raw_dir, f'{raw_fid}.mp4')} -f wav -vn -y {wav_path} -loglevel quiet"
         subprocess.call(cmd, shell=True)
         raw_audio = AudioSegment.from_wav(wav_path)
         for fid, start_sec, end_sec in fid_info:
@@ -158,7 +158,7 @@ def trim_audio(csv_fn, raw_dir, output_dir, ffmpeg, rank, nshard):
                 end_sec = 24*3600
             t1, t2 = int(start_sec*1000), int(end_sec*1000)
             new_audio = raw_audio[t1: t2]
-            output_path = os.path.join(output_dir, fid+'.wav')
+            output_path = os.path.join(output_dir, f'{fid}.wav')
             os.makedirs(os.path.dirname(output_path), exist_ok=True)
             new_audio.export(output_path, format="wav")
         shutil.rmtree(tmp_dir)
@@ -166,13 +166,13 @@ def trim_audio(csv_fn, raw_dir, output_dir, ffmpeg, rank, nshard):
 
 def trim_pretrain(root_dir, ffmpeg, rank=0, nshard=1, step=1):
     pretrain_dir = os.path.join(root_dir, 'pretrain')
-    print(f"Trim original videos in pretrain")
+    print("Trim original videos in pretrain")
     csv_fn = os.path.join(root_dir, 'short-pretrain.csv')
     if step == 1:
         print(f"Step 1. Make csv file {csv_fn}")
         make_short_manifest(pretrain_dir, csv_fn)
     else:
-        print(f"Step 2. Trim video and audio")
+        print("Step 2. Trim video and audio")
         output_video_dir, output_audio_dir = os.path.join(root_dir, 'short-pretrain'), os.path.join(root_dir, 'audio/short-pretrain/')
         os.makedirs(output_video_dir, exist_ok=True)
         os.makedirs(output_audio_dir, exist_ok=True)
@@ -182,7 +182,9 @@ def trim_pretrain(root_dir, ffmpeg, rank=0, nshard=1, step=1):
 
 def prep_wav(lrs3_root, ffmpeg, rank, nshard):
     output_dir = f"{lrs3_root}/audio/"
-    video_fns = glob.glob(lrs3_root + '/trainval/*/*mp4') + glob.glob(lrs3_root + '/test/*/*mp4')
+    video_fns = glob.glob(f'{lrs3_root}/trainval/*/*mp4') + glob.glob(
+        f'{lrs3_root}/test/*/*mp4'
+    )
     video_fns = sorted(video_fns)
     num_per_shard = math.ceil(len(video_fns)/nshard)
     start_id, end_id = num_per_shard*rank, num_per_shard*(rank+1)
@@ -193,7 +195,7 @@ def prep_wav(lrs3_root, ffmpeg, rank, nshard):
         base_name = '/'.join(video_fn.split('/')[-3:])
         audio_fn = os.path.join(output_dir, base_name.replace('mp4', 'wav'))
         os.makedirs(os.path.dirname(audio_fn), exist_ok=True)
-        cmd = ffmpeg + " -i " + video_fn + " -f wav -vn -y " + audio_fn + ' -loglevel quiet'
+        cmd = f"{ffmpeg} -i {video_fn} -f wav -vn -y {audio_fn} -loglevel quiet"
         subprocess.call(cmd, shell=True)
     return
 
@@ -205,7 +207,7 @@ def get_file_label(lrs3_root):
             video_fns = glob.glob(os.path.join(lrs3_root, split, subdir, '*mp4'))
             video_ids = ['/'.join(x.split('/')[-3:])[:-4] for x in video_fns]
             for video_id in video_ids:
-                txt_fn = os.path.join(lrs3_root, video_id+'.txt')
+                txt_fn = os.path.join(lrs3_root, f'{video_id}.txt')
                 label = open(txt_fn).readlines()[0].split(':')[1].strip()
                 labels_total.append(label)
                 video_ids_total.append(video_id)
@@ -234,7 +236,7 @@ if __name__ == '__main__':
     if args.step <= 2:
         trim_pretrain(args.lrs3, args.ffmpeg, args.rank, args.nshard, step=args.step)
     elif args.step == 3:
-        print(f"Extracting audio for trainval/test")
+        print("Extracting audio for trainval/test")
         prep_wav(args.lrs3, args.ffmpeg, args.rank, args.nshard)
     elif args.step == 4:
         get_file_label(args.lrs3)

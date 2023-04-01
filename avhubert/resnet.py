@@ -111,12 +111,16 @@ class ResNet(nn.Module):
                                                  outplanes = planes * block.expansion, 
                                                  stride = stride )
 
-        layers = []
-        layers.append(block(self.inplanes, planes, stride, downsample, relu_type = self.relu_type))
+        layers = [
+            block(
+                self.inplanes, planes, stride, downsample, relu_type=self.relu_type
+            )
+        ]
         self.inplanes = planes * block.expansion
-        for i in range(1, blocks):
-            layers.append(block(self.inplanes, planes, relu_type = self.relu_type))
-
+        layers.extend(
+            block(self.inplanes, planes, relu_type=self.relu_type)
+            for _ in range(1, blocks)
+        )
         return nn.Sequential(*layers)
 
     def forward(self, x):

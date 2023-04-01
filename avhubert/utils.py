@@ -21,8 +21,7 @@ def load_video(path):
             frames.append(frame)
         else:
             break
-    frames = np.stack(frames)
-    return frames
+    return np.stack(frames)
 
 
 class Compose(object):
@@ -40,7 +39,7 @@ class Compose(object):
         return sample
 
     def __repr__(self):
-        format_string = self.__class__.__name__ + '('
+        format_string = f'{self.__class__.__name__}('
         for t in self.preprocess:
             format_string += '\n'
             format_string += '    {0}'.format(t)
@@ -200,7 +199,7 @@ def compute_mask_indices(
             lengths = np.random.poisson(mask_length, size=num_mask)
             lengths = [int(round(x)) for x in lengths]
         else:
-            raise Exception("unknown mask selection " + mask_type)
+            raise Exception(f"unknown mask selection {mask_type}")
 
         if sum(lengths) == 0:
             lengths[0] = min(mask_length, sz - 1)
@@ -251,7 +250,7 @@ def compute_mask_indices(
 
         mask_idcs.append(np.unique(mask_idc[mask_idc < sz]))
 
-    min_len = min([len(m) for m in mask_idcs])
+    min_len = min(len(m) for m in mask_idcs)
     batch_indexes, starts, ends = [], [], []
     for i, mask_idc in enumerate(mask_idcs):
         if len(mask_idc) > min_len:
@@ -273,21 +272,19 @@ def find_runs(x):
         raise ValueError('only 1D array supported')
     n = x.shape[0]
 
-    # handle empty array
     if n == 0:
         return np.array([]), np.array([]), np.array([])
 
-    else:
-        # find run starts
-        loc_run_start = np.empty(n, dtype=bool)
-        loc_run_start[0] = True
-        np.not_equal(x[:-1], x[1:], out=loc_run_start[1:])
-        run_starts = np.nonzero(loc_run_start)[0]
+    # find run starts
+    loc_run_start = np.empty(n, dtype=bool)
+    loc_run_start[0] = True
+    np.not_equal(x[:-1], x[1:], out=loc_run_start[1:])
+    run_starts = np.nonzero(loc_run_start)[0]
 
-        # find run values
-        run_values = x[loc_run_start]
+    # find run values
+    run_values = x[loc_run_start]
 
-        # find run lengths
-        run_lengths = np.diff(np.append(run_starts, n))
+    # find run lengths
+    run_lengths = np.diff(np.append(run_starts, n))
 
-        return run_values, run_starts, run_lengths
+    return run_values, run_starts, run_lengths

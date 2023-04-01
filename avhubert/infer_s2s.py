@@ -171,7 +171,7 @@ def _main(cfg, output_file):
         itr,
         log_format=cfg.common.log_format,
         log_interval=cfg.common.log_interval,
-        default_log_format=("tqdm" if not cfg.common.no_progress_bar else "simple"),
+        default_log_format="simple" if cfg.common.no_progress_bar else "tqdm",
     )
 
     # Initialize generator
@@ -246,7 +246,7 @@ def _main(cfg, output_file):
 
     yaml_str = OmegaConf.to_yaml(cfg.generation)
     fid = int(hashlib.md5(yaml_str.encode("utf-8")).hexdigest(), 16)
-    fid = fid % 1000000
+    fid %= 1000000
     result_fn = f"{cfg.common_eval.results_path}/hypo-{fid}.json"
     json.dump(result_dict, open(result_fn, 'w'), indent=4)
     n_err, n_total = 0, 0
